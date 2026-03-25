@@ -273,6 +273,7 @@ Design points:
 
 The path is computed only when paused (`P`) and revealed tile-by-tile for clarity.
 
+**A* deeper dive**  
 The algorithm is standard A* with a priority queue ordered by `f = g + h`:
 
 - `g` is the cost from the start (path length so far).
@@ -395,22 +396,32 @@ Example Markdown:
 ## 3. Reflective Element
 
 ### 3.1 Biggest Problems Encountered
-- **Obstacle-aware spawning:** Food spawning inside walls/snake initially occurred. Fixed by checking tile occupancy before confirming a position.
-- **Pathfinding correctness:** Ensured the snake's head tile is allowed and body tiles are blocked.
-- **Coordinate conversions:** Mixed pixel vs tile coordinates; resolved by using tile size consistently for conversions.
+The first major issue was **obstacle-aware spawning**. Early on, food occasionally appeared inside the snake or inside the wall clusters. This made the game feel unfair and also exposed that my collision logic wasn’t fully aligned with how I was representing positions. The fix was to treat the grid as the source of truth: I added a check that converts both snake segments and wall tiles into the same tile coordinate space before confirming a spawn. This forced me to be explicit about the difference between **pixel coordinates** (for drawing) and **tile coordinates** (for game logic). Once that pipeline was clean, the food placement was reliable and the gameplay felt more consistent.
+
+The second big challenge was **pathfinding correctness**. Implementing A* is straightforward on paper, but getting the details right in a running game required careful thought. The snake’s body needed to be treated as obstacles while still allowing the head tile to act as the starting node. If I treated the full body as blocked, the algorithm could never start. If I treated the whole snake as free, the path would route straight through itself. The final approach was to block every body tile except the head, and to build the `blocked` grid from both the snake and the walls. That made the search result match what the player expects visually.
+
+The third issue was **coordinate conversion drift**. At several points I mixed up tile space and pixel space, which created off‑by‑one movement or incorrect collision checks. To fix this, I made sure any comparison between objects first normalized into tile space (by dividing by `tileSize`). This eliminated a class of small, frustrating bugs and made the overall system easier to reason about.
 
 ### 3.2 Learning Outcomes
-- **Grid reasoning:** Reinforced how grid-based movement simplifies collision and AI.
-- **Search algorithms:** Implemented A* in a real-time context and tuned it for clarity.
-- **Code structure:** Separating `Snake`, `Food`, `Grid`, and `AStar` improved maintainability.
+The biggest learning outcome was the value of **grid‑based reasoning** in game logic. By enforcing tile‑aligned movement, the snake became predictable, collision tests became simpler, and the A* search could operate on a clean discrete space. This was a direct upgrade from my earlier first‑year tic‑tac‑toe project, where I only used a 2D array for text output. Here, the same conceptual grid became the foundation for graphics, movement, AI, and collision.
+
+Implementing **A*** in a real-time visual context also deepened my understanding of search algorithms. In theory, A* is about prioritizing nodes by a cost + heuristic estimate. In practice, I had to choose a heuristic that fits the movement constraints (Manhattan distance for 4‑direction tiles), handle blocked tiles properly, and return a path that could be visualized in a way that made sense to the player. The visual feedback from the pause‑mode path overlay was especially valuable for debugging and verifying that the algorithm was doing what I intended.
+
+Finally, structuring the code into `Snake`, `Food`, `Grid`, and `AStar` gave me a more maintainable design than a single monolithic file. It made the project easier to extend and easier to explain. Even though the project is small, the separation of concerns helped keep my mental model clear while testing and debugging.
 
 ### 3.3 What I Would Do Differently
-- Add a full game-state machine (menu, playing, paused, game over).
-- Add dynamic difficulty (speed increases, randomized wall layouts).
-- Add score UI, sound effects, and input buffering for smoother control.
+If I were to restart this project, I would build a **game state system** from the beginning. Right now the game ends by closing the window, which is functional but abrupt. A simple state machine (menu → playing → paused → game over) would make the experience cleaner and would create a natural place for UI features like a score display, restart button, and difficulty selection.
+
+I would also add **progressive difficulty**. A classic Snake game becomes more engaging as speed increases or as obstacles shift. With the current structure, this could be added by modifying the movement delay over time and randomizing wall layouts between rounds. That would also make the A* visualization more interesting because the search space would change, forcing different routes.
+
+Finally, I would polish **input and feedback**: add input buffering so fast key presses are not missed, add sound effects for collisions and food collection, and add a visible score counter. These features are not hard to implement, but they make the project feel more complete and professional.
 
 ### 3.4 Motivation (Why This Project)
-This project connected to an earlier first-year tic-tac-toe assignment where I used a 2D array and ASCII output to navigate a grid. I wanted to revisit that idea with stronger C++ skills and proper visuals. Although graphics were not required, I had been experimenting with raylib and found it simple and productive. A Snake game felt like the best way to showcase A* pathfinding on a grid while still aligning with my interest in game development.
+I chose this project because it connected directly to earlier coursework. In first year, I built a tic‑tac‑toe game using a 2D array and ASCII output. That project taught me how to navigate and reason about a grid, but it was entirely text‑based. For this assignment I wanted to revisit the same idea, but apply stronger C++ skills and proper visuals.
+
+Although graphics were not required, I had been experimenting with **raylib** in my spare time and found it approachable and productive. It let me focus on the game logic rather than complex rendering setup. A Snake game felt like the perfect fit: it is grid‑based, simple to learn, and provides a clear visual demonstration of pathfinding. The A* overlay gives a direct, visible link between algorithm and gameplay, which made the project both fun to build and useful as a learning tool.
+
+Overall, the project sits at the intersection of my interest in game development and my interest in algorithms. It was a chance to take a familiar concept, apply it in a more advanced setting, and produce something I could both play and explain with confidence.
 
 ---
 
