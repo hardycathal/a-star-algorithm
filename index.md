@@ -348,7 +348,13 @@ When paused, the A* path is computed once and then gradually drawn in yellow til
 ### 1.4 Visuals (Insert Your Own)
 ![Figure 1: Gameplay screenshot](assets/game.png)
 
-[Figure 2: Gameplay video showing growth and A* path toggle](https://youtu.be/hw-p8oOroXE)
+<iframe width="700" height="394"
+    src="https://www.youtube.com/embed/hw-p8oOroXE"
+    title="Figure 2: Gameplay video showing growth and A* path toggle"
+    frameborder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowfullscreen>
+</iframe>
 
 ### 1.5 Design Choices (Why These Approaches)
 - **Raylib:** Minimal setup, fast iteration, and simple 2D primitives.
@@ -429,5 +435,5 @@ References used:
 - `https://www.raylib.com/cheatsheet/cheatsheet.html`
 - `https://www.geeksforgeeks.org/dsa/a-search-algorithm/`
 - `https://en.cppreference.com/w/`
-- `https://chatgpt.com/` (used only for help with the A* algorithm)
+- `https://chatgpt.com/` (used mostly for help with the A* algorithm)
 
