@@ -15,36 +15,168 @@ The game runs in a fixed-size window (`800x600`) with a tile size of `25px`, yie
 
 ### 1.2 Key Functionality
 - **Grid rendering:** Alternating colors for a readable playfield and static blue wall clusters.
-- **Snake movement:** Tile-based movement with growth on food collision.
+- **Snake movement:** Discrete, tile-based movement with growth on food collision.
 - **Food spawning:** Randomized placement that avoids snake body and walls.
 - **Pathfinding (A*):** Shortest path computed on pause, shown progressively for clarity.
 
-### 1.3 Code Snippets
-Use these snippets in the final report, with line numbers/labels as needed.
+### 1.3 Code Walkthrough (By File)
 
-**Main loop (movement + pause + A*):**
+#### Grid (`grid.h` / `grid.cpp`)
+I started by building the grid system. The grid is a 2D vector of integers (initialized to 0) used to represent tile positions.
+
 ```cpp
-if (IsKeyPressed(KEY_P)) {
-    paused = !paused;
-    if (paused) {
-        path = AStar::FindPath(g, s, f.getPos(), windowWidth, windowHeight);
-        visiblePathTiles = 0;
-        lastPathStepTime = GetTime();
-    }
-}
+class Grid {
+private:
+    int tileSize_;
+    std::vector<std::vector<int>> vec_;
+    Color pColour_;
+    Color aColour_;
+    std::vector<std::vector<Vector2>> walls_;
+    void initWalls();
+public:
+    Grid(int tileSize,
+        const std::vector<std::vector<int>>& grid,
+        Color primary,
+        Color accent);
+    void drawGrid();
+    void drawWalls();
+};
+```
 
-if (!paused && GetTime() - lastMoveTime >= moveDelay) {
-    s.move();
-    lastMoveTime = GetTime();
+The grid is created in `main.cpp` like this:
+
+```cpp
+Grid g(
+    tileSize,
+    std::vector<std::vector<int>>(windowHeight / tileSize, std::vector<int>(windowWidth / tileSize, 0)),
+    { 0, 102, 51, 255 },
+    { 0, 153, 76, 255 }
+);
+```
+
+It is drawn using `drawGrid()`, which alternates colors for a checkerboard effect:
+
+```cpp
+void Grid::drawGrid()
+{
+    for (int j = 0; j < (int)vec_.size(); j++)
+    {
+        for (int i = 0; i < (int)vec_[j].size(); i++)
+        {
+            if ((i + j) % 2 == 0)
+                DrawRectangle(i * tileSize_, j * tileSize_, tileSize_, tileSize_, pColour_);
+            else
+                DrawRectangle(i * tileSize_, j * tileSize_, tileSize_, tileSize_, aColour_);
+        }
+    }
 }
 ```
 
-**A* core idea (grid, Manhattan heuristic):**
+This function walks the grid by row (`j`) and column (`i`).
+
+- If `i + j` is even, it uses the primary color.
+- If `i + j` is odd, it uses the accent color.
+
+Example parity pattern:
+```
+(j,i) grid with (i+j) parity
+j=0: (0,0)E (0,1)O (0,2)E (0,3)O
+j=1: (1,0)O (1,1)E (1,2)O (1,3)E
+j=2: (2,0)E (2,1)O (2,2)E (2,3)O
+
+E = even ? primary color
+O = odd  ? accent color
+```
+
+I added getters/setters as needed to reduce clutter while building features.
+
+#### Snake (`snake.h` / `snake.cpp`)
+I store the snake as a `std::vector<Vector2>` so each body segment has an `(x, y)` position.
+
+```cpp
+class Snake {
+private:
+    std::vector<Vector2> body_;
+    Color colour_;
+    int dir_ = 0;
+public:
+    Snake(Color, int);
+    void drawSnake();
+    void addPart();
+    void move();
+    void setDir(int);
+    int getDir();
+    int getSize();
+    std::vector<Vector2> getBody() const;
+    void boundaryCheck(Grid g);
+};
+```
+
+- **`drawSnake()`** renders each segment as a rectangle.
+- **`addPart()`** grows the snake by duplicating the last segment.
+- **`move()`** inserts a new head based on direction and removes the tail.
+- **`boundaryCheck()`** ends the game if the snake hits the wall, itself, or the static obstacles.
+
+Movement uses tile-sized steps so the snake stays aligned to the grid.
+
+#### Food (`food.h` / `food.cpp`)
+The food system handles spawning and respawning after collision with the snake.
+
+```cpp
+class Food {
+private:
+    int tileSize_ = 25;
+    Color colour_;
+    Vector2 pos_;
+public:
+    Food(int, Color, int, int, const Grid&, const Snake&);
+    void drawFood();
+    void detectCollisionAndMove(Snake&, const Grid&, int a, int b);
+    Vector2 getRandom(const Grid&, const Snake&, int, int);
+    Vector2 getPos() const { return pos_; }
+};
+```
+
+Key idea:
+- **`getRandom()`** picks a random tile that is not occupied by the snake body or walls.
+- **`detectCollisionAndMove()`** checks if the head hits the food, grows the snake, and respawns the food.
+
+This avoids frustrating cases where food spawns inside obstacles.
+
+#### A* Pathfinding (`aStar.h` / `aStar.cpp`)
+I implemented A* to compute a shortest path from the snake head to the food.
+
 ```cpp
 static float Heuristic(int x, int y, int gx, int gy) {
     return static_cast<float>(abs(gx - x) + abs(gy - y));
 }
 ```
+
+Design points:
+- Uses Manhattan distance, which matches 4-direction grid movement.
+- Treats walls and the snake body (except the head) as blocked.
+- Returns a vector of tile coordinates so the path can be drawn as grid-aligned rectangles.
+
+The path is computed only when paused (`P`) and revealed tile-by-tile for clarity.
+
+#### Main Loop (`main.cpp`)
+The game loop ties everything together:
+- Creates the window and grid
+- Handles input and direction changes
+- Updates movement on a fixed delay
+- Checks food collisions
+- Handles pause + A* visualization
+
+```cpp
+if (!paused && GetTime() - lastMoveTime >= moveDelay) {
+    s.move();
+    lastMoveTime = GetTime();
+}
+
+if (!paused) f.detectCollisionAndMove(s, g, windowWidth, windowHeight);
+```
+
+When paused, the A* path is computed once and then gradually drawn in yellow tiles to show the path clearly.
 
 ### 1.4 Visuals (Insert Your Own)
 Add your own screenshots or short clips. Label them and reference in the text.
@@ -76,7 +208,6 @@ Example Markdown:
 ## 2. Project Management
 
 ### 2.1 Planning
-Briefly describe your plan (example below, edit to match what you did):
 - **Phase 1:** Core gameplay loop (window, grid, snake movement).
 - **Phase 2:** Food spawning and collision handling.
 - **Phase 3:** Static obstacles (walls).
@@ -84,11 +215,8 @@ Briefly describe your plan (example below, edit to match what you did):
 - **Phase 5:** Polish and bug fixes.
 
 ### 2.2 Progress Tracking
-Describe how you tracked progress (Git commits, checklist, Trello, notes, etc.).
-
-Example:
-- Kept a small checklist in a text file and used Git commits to checkpoint features.
-- Validated each phase with a quick manual playtest.
+- Kept a small checklist and used Git commits to checkpoint features.
+- Validated each phase with manual playtests.
 
 ### 2.3 Timeline (Example)
 - **Week 1:** Core gameplay loop + grid rendering.
