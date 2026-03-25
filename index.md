@@ -90,6 +90,23 @@ O = odd  ? accent color
 
 I added getters/setters as needed to reduce clutter while building features.
 
+**`drawWalls()`** renders fixed wall clusters (stored as tile coordinates) and converts them into pixel rectangles at draw time. This keeps wall placement grid-aligned and simple to reason about.
+
+```cpp
+void Grid::drawWalls()
+{
+    for (const auto& wall : walls_)
+    {
+        for (const auto& vec : wall)
+        {
+            DrawRectangle(vec.x * tileSize_, vec.y * tileSize_, tileSize_, tileSize_, BLUE);
+        }
+    }
+}
+```
+
+Walls are defined once in `initWalls()` as vectors of tile coordinates. Using tile space here avoids off‑by‑one issues and makes it easy to experiment with layouts.
+
 #### Snake (`snake.h` / `snake.cpp`)
 I store the snake as a `std::vector<Vector2>` so each body segment has an `(x, y)` position.
 
@@ -119,6 +136,40 @@ public:
 
 Movement uses tile-sized steps so the snake stays aligned to the grid.
 
+**`boundaryCheck()`** ends the game if the head collides with the screen edges, its own body, or any wall tile. This centralizes collision termination logic in one place.
+
+```cpp
+void Snake::boundaryCheck(Grid g)
+{
+    std::vector<std::vector<Vector2>> walls_ = g.getWalls();
+    int tileSize_ = g.getTileSize();
+    Vector2 head = body_.front();
+
+    if (head.x < 0 || head.x > 800 || head.y < 0 || head.y > 600) {
+        CloseWindow();
+    }
+
+    for (int i = 1; i < static_cast<int>(body_.size()); ++i)
+    {
+        if (head.x == body_[i].x && head.y == body_[i].y) {
+            CloseWindow();
+        }
+    }
+
+    for (const auto& wall : walls_)
+    {
+        for (const auto& vec : wall)
+        {
+            if (head.x == vec.x * tileSize_ && head.y == vec.y * tileSize_) {
+                CloseWindow();
+            }
+        }
+    }
+}
+```
+
+This keeps collision checks explicit and readable. A natural future improvement would be returning a game state instead of immediately closing the window.
+
 #### Food (`food.h` / `food.cpp`)
 The food system handles spawning and respawning after collision with the snake.
 
@@ -143,6 +194,69 @@ Key idea:
 
 This avoids frustrating cases where food spawns inside obstacles.
 
+**`detectCollisionAndMove()`** checks for head–food overlap and handles growth + respawn. The method is short but important because it controls progression and difficulty.
+
+```cpp
+void Food::detectCollisionAndMove(Snake& s, const Grid& g, int a, int b)
+{
+    std::vector<Vector2> sb = s.getBody();
+
+    if (pos_.x == sb.front().x && pos_.y == sb.front().y) {
+        Vector2 random = getRandom(g, s, a, b);
+        pos_.x = random.x;
+        pos_.y = random.y;
+
+        s.addPart();
+        }
+}
+```
+
+**`getRandom()`** retries random tiles until it finds a free spot. It converts all candidate tiles into grid coordinates to avoid pixel‑precision mistakes.
+
+```cpp
+Vector2 Food::getRandom(const Grid& g, const Snake& s, int a, int b)
+{
+    const int cols = a / tileSize_;
+    const int rows = b / tileSize_;
+
+    std::vector<Vector2> snakeBody = s.getBody();
+    std::vector<std::vector<Vector2>> walls = g.getWalls();
+
+    auto isOccupied = [&](int tx, int ty) -> bool {
+        for (const auto& part : snakeBody) {
+            int sx = static_cast<int>(part.x) / tileSize_;
+            int sy = static_cast<int>(part.y) / tileSize_;
+            if (sx == tx && sy == ty) {
+                return true;
+            }
+        }
+        for (const auto& wall : walls) {
+            for (const auto& cell : wall) {
+                if (static_cast<int>(cell.x) == tx && static_cast<int>(cell.y) == ty) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+
+    static std::mt19937 gen(std::random_device{}());
+    std::uniform_int_distribution<> distX(0, cols - 1);
+    std::uniform_int_distribution<> distY(0, rows - 1);
+
+    const int maxAttempts = cols * rows;
+    for (int attempt = 0; attempt < maxAttempts; ++attempt) {
+        int tx = distX(gen);
+        int ty = distY(gen);
+        if (!isOccupied(tx, ty)) {
+            return { static_cast<float>(tx * tileSize_), static_cast<float>(ty * tileSize_) };
+        }
+    }
+
+    return pos_;
+}
+```
+
 #### A* Pathfinding (`aStar.h` / `aStar.cpp`)
 I implemented A* to compute a shortest path from the snake head to the food.
 
@@ -158,6 +272,57 @@ Design points:
 - Returns a vector of tile coordinates so the path can be drawn as grid-aligned rectangles.
 
 The path is computed only when paused (`P`) and revealed tile-by-tile for clarity.
+
+**A* deeper dive**  
+The algorithm is standard A* with a priority queue ordered by `f = g + h`:
+
+- `g` is the cost from the start (path length so far).
+- `h` is the Manhattan heuristic to the goal.
+- `f` is the estimated total cost.
+
+Blocked tiles are constructed from both the wall layout and the snake body (excluding the head). This makes the path search respect obstacles and avoids impossible routes.
+
+```cpp
+// blocked[y][x] marks tiles the pathfinder is not allowed to enter.
+std::vector<std::vector<bool>> blocked(rows, std::vector<bool>(cols, false));
+
+for (const auto& wall : g.getWalls()) {
+    for (const auto& cell : wall) {
+        int wx = static_cast<int>(cell.x);
+        int wy = static_cast<int>(cell.y);
+        if (wx >= 0 && wx < cols && wy >= 0 && wy < rows) {
+            blocked[wy][wx] = true;
+        }
+    }
+}
+
+// Treat the snake body as obstacles, but allow the head tile as the start.
+std::vector<Vector2> body = s.getBody();
+for (int i = 1; i < static_cast<int>(body.size()); ++i) {
+    int bx = static_cast<int>(body[i].x) / tileSize;
+    int by = static_cast<int>(body[i].y) / tileSize;
+    if (bx >= 0 && bx < cols && by >= 0 && by < rows) {
+        blocked[by][bx] = true;
+    }
+}
+```
+
+The search expands the tile with the lowest `f` each step, records parents in `cameFrom`, and reconstructs the path by walking backward from the goal:
+
+```cpp
+while (!(cx == startX && cy == startY)) {
+    path.push_back({ static_cast<float>(cx), static_cast<float>(cy) });
+    Vector2 prev = cameFrom[cy][cx];
+    if (prev.x < 0) {
+        break;
+    }
+    cx = static_cast<int>(prev.x);
+    cy = static_cast<int>(prev.y);
+}
+std::reverse(path.begin(), path.end());
+```
+
+Because the returned path is in **tile coordinates**, it can be drawn directly as grid-aligned rectangles. This also keeps the logic consistent with the grid-based movement used elsewhere in the project.
 
 #### Main Loop (`main.cpp`)
 The game loop ties everything together:
