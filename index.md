@@ -346,16 +346,9 @@ if (!paused) f.detectCollisionAndMove(s, g, windowWidth, windowHeight);
 When paused, the A* path is computed once and then gradually drawn in yellow tiles to show the path clearly.
 
 ### 1.4 Visuals (Insert Your Own)
-Add your own screenshots or short clips. Label them and reference in the text.
+![Figure 1: Gameplay screenshot](assets/game.png)
 
-- **Figure 1:** Normal gameplay (snake, food, walls).
-- **Figure 2:** Paused view with A* path tiles in yellow.
-- **Figure 3:** Food spawn example showing obstacle avoidance.
-
-Example Markdown:
-```md
-![Figure 1: Normal gameplay](assets/fig1-gameplay.png)
-```
+![Figure 2: Gameplay video showing growth and A* path toggle](assets/VIDEO.mp4)
 
 ### 1.5 Design Choices (Why These Approaches)
 - **Raylib:** Minimal setup, fast iteration, and simple 2D primitives.
