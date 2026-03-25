@@ -273,7 +273,6 @@ Design points:
 
 The path is computed only when paused (`P`) and revealed tile-by-tile for clarity.
 
-**A* deeper dive**  
 The algorithm is standard A* with a priority queue ordered by `f = g + h`:
 
 - `g` is the cost from the start (path length so far).
@@ -323,6 +322,8 @@ std::reverse(path.begin(), path.end());
 ```
 
 Because the returned path is in **tile coordinates**, it can be drawn directly as grid-aligned rectangles. This also keeps the logic consistent with the grid-based movement used elsewhere in the project.
+
+I also used `https://chatgpt.com/` to help clarify the A* algorithm and sanity-check the approach while implementing it.
 
 #### Main Loop (`main.cpp`)
 The game loop ties everything together:
@@ -420,11 +421,9 @@ Example:
 - raylib documentation.
 - A* pathfinding references (if used).
 
----
+References used:
+- `https://www.raylib.com/cheatsheet/cheatsheet.html`
+- `https://www.geeksforgeeks.org/dsa/a-search-algorithm/`
+- `https://en.cppreference.com/w/`
+- `https://chatgpt.com/` (used only for help with the A* algorithm)
 
-## Appendix (Optional)
-Add build/run instructions or extra screenshots here.
-
-Example:
-- Build in Visual Studio using `SnakeGame.sln`.
-- Run the compiled executable.
