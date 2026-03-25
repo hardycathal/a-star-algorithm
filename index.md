@@ -348,7 +348,10 @@ When paused, the A* path is computed once and then gradually drawn in yellow til
 ### 1.4 Visuals (Insert Your Own)
 ![Figure 1: Gameplay screenshot](assets/game.png)
 
-![Figure 2: Gameplay video showing growth and A* path toggle](assets/VIDEO.mp4)
+<video controls width="700">
+  <source src="assets/VIDEO.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
 
 ### 1.5 Design Choices (Why These Approaches)
 - **Raylib:** Minimal setup, fast iteration, and simple 2D primitives.
